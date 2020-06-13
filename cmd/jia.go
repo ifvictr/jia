@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/ifvictr/fig/pkg/fig"
+	"github.com/ifvictr/jia/pkg/jia"
 	"github.com/joho/godotenv"
 	"github.com/slack-go/slack"
 )
@@ -16,8 +16,8 @@ func init() {
 }
 
 func main() {
-	fmt.Println("Starting Fig…")
-	config := fig.NewConfig()
+	fmt.Println("Starting Jia…")
+	config := jia.NewConfig()
 
 	api := slack.New(config.BotToken)
 	rtm := api.NewRTM()
