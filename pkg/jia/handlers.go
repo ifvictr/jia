@@ -66,8 +66,4 @@ func onMessage(slackClient *slack.Client, event *slackevents.MessageEvent) {
 	// Finally!
 	lastValidNumber = matchedNumber
 	lastSender = event.User
-	slackClient.AddReaction("+1", slack.ItemRef{
-		Channel:   event.Channel,
-		Timestamp: event.TimeStamp,
-	})
 }
