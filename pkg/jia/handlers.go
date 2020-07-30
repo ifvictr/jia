@@ -18,12 +18,6 @@ func HandleInnerEvent(slackClient *slack.Client, innerEvent *slackevents.EventsA
 	}
 }
 
-// TODO: Persist to Redis
-var (
-	lastValidNumber = 0
-	lastSender      = ""
-)
-
 func onMessage(slackClient *slack.Client, event *slackevents.MessageEvent) {
 	// Ignore messages that aren't in the target channel, or are non-user messages
 	if event.Channel != jiaConfig.ChannelID || event.User == "USLACKBOT" || event.User == "" {
@@ -42,7 +36,12 @@ func onMessage(slackClient *slack.Client, event *slackevents.MessageEvent) {
 	}
 
 	// Reject if sender also sent the previous number.
-	if event.User == lastSender {
+	lastSenderID, err := redisClient.Get("last_sender_id").Result()
+	if err != nil {
+		log.Println("Failed to retrieve the last sender")
+		return
+	}
+	if event.User == lastSenderID {
 		slackClient.AddReaction("bangbang", slack.ItemRef{
 			Channel:   event.Channel,
 			Timestamp: event.TimeStamp,
@@ -53,6 +52,16 @@ func onMessage(slackClient *slack.Client, event *slackevents.MessageEvent) {
 	}
 
 	// Ignore numbers that aren't in order.
+	lastValidNumberStr, err := redisClient.Get("last_valid_number").Result()
+	if err != nil {
+		log.Println("Failed to retrieve the last valid number")
+		return
+	}
+	lastValidNumber, err := strconv.Atoi(lastValidNumberStr)
+	if err != nil {
+		log.Println("Failed to convert the last valid number to an integer")
+		return
+	}
 	if matchedNumber != lastValidNumber+1 {
 		slackClient.AddReaction("bangbang", slack.ItemRef{
 			Channel:   event.Channel,
@@ -64,6 +73,6 @@ func onMessage(slackClient *slack.Client, event *slackevents.MessageEvent) {
 	}
 
 	// Finally!
-	lastValidNumber = matchedNumber
-	lastSender = event.User
+	redisClient.Set("last_valid_number", matchedNumber, 0)
+	redisClient.Set("last_sender_id", event.User, 0)
 }

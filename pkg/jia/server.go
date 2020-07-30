@@ -26,6 +26,10 @@ func StartServer(config *Config) {
 	}
 	redisClient = redis.NewClient(options)
 
+	// Initialize default values
+	redisClient.SetNX("last_sender_id", "", 0)
+	redisClient.SetNX("last_valid_number", 0, 0)
+
 	// Initialize Slack app
 	slackClient = slack.New(config.BotToken)
 
