@@ -24,6 +24,11 @@ func onMessage(slackClient *slack.Client, event *slackevents.MessageEvent) {
 		return
 	}
 
+	// Ignore threaded messages.
+	if event.ThreadTimeStamp != "" {
+		return
+	}
+
 	// Attempt to extract a positive number at the start of a string.
 	countPattern := regexp.MustCompile(`^\d+`)
 	matchedNumber, err := strconv.Atoi(countPattern.FindString(event.Text))
