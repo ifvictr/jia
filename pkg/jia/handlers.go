@@ -19,19 +19,17 @@ func HandleInnerEvent(slackClient *slack.Client, innerEvent *slackevents.EventsA
 }
 
 func onMessage(slackClient *slack.Client, event *slackevents.MessageEvent) {
-	// Ignore messages that aren't in the target channel, or are non-user messages
+	// Ignore messages that aren't in the target channel, or are non-user messages.
 	if event.Channel != jiaConfig.ChannelID || event.User == "USLACKBOT" || event.User == "" {
 		return
 	}
 
-	// Attempt to extract a positive number from the beginning of a string
+	// Attempt to extract a positive number at the start of a string.
 	countPattern := regexp.MustCompile(`^\d+`)
 	matchedNumber, err := strconv.Atoi(countPattern.FindString(event.Text))
-	log.Println(matchedNumber)
 
 	// Ignore messages that don't have numbers.
 	if err != nil {
-		log.Println("Failed to retrieve number, skipping…")
 		return
 	}
 
@@ -51,7 +49,7 @@ func onMessage(slackClient *slack.Client, event *slackevents.MessageEvent) {
 		return
 	}
 
-	// Ignore numbers that aren't in order.
+	// Retrieve stored info about the last valid number and its sender.
 	lastValidNumberStr, err := redisClient.Get("last_valid_number").Result()
 	if err != nil {
 		log.Println("Failed to retrieve the last valid number")
@@ -62,6 +60,8 @@ func onMessage(slackClient *slack.Client, event *slackevents.MessageEvent) {
 		log.Println("Failed to convert the last valid number to an integer")
 		return
 	}
+
+	// Ignore numbers that aren't in order.
 	if matchedNumber != lastValidNumber+1 {
 		slackClient.AddReaction("bangbang", slack.ItemRef{
 			Channel:   event.Channel,
