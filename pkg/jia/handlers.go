@@ -5,6 +5,7 @@ import (
 	"log"
 	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
@@ -14,7 +15,6 @@ func HandleInnerEvent(slackClient *slack.Client, innerEvent *slackevents.EventsA
 	switch e := innerEvent.Data.(type) {
 	case *slackevents.MessageEvent:
 		onMessage(slackClient, e)
-		break
 	}
 }
 
@@ -80,4 +80,12 @@ func onMessage(slackClient *slack.Client, event *slackevents.MessageEvent) {
 	// Finally!
 	redisClient.Set("last_valid_number", matchedNumber, 0)
 	redisClient.Set("last_sender_id", event.User, 0)
+
+	// Get the current month/year in UTC
+	now := time.Now().UTC()
+	year := now.Year()
+	month := now.Month()
+
+	// Increment the person's monthly count
+	redisClient.Incr(fmt.Sprintf("%d-%d:%s", month, year, event.User))
 }
