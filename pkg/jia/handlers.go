@@ -1,9 +1,12 @@
 package jia
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"time"
 
@@ -87,5 +90,77 @@ func onMessage(slackClient *slack.Client, event *slackevents.MessageEvent) {
 	month := now.Month()
 
 	// Increment the person's monthly count
-	redisClient.Incr(fmt.Sprintf("%d-%d:%s", month, year, event.User))
+	redisClient.Incr(fmt.Sprintf("leaderboard:%d-%d:%s", month, year, event.User))
+}
+
+func HandleLeaderboardSlashCommand(w http.ResponseWriter, r *http.Request) {
+	// Get the current month/year in UTC
+	now := time.Now().UTC()
+	year := now.Year()
+	month := now.Month()
+
+	scan := redisClient.Scan(0, fmt.Sprintf("leaderboard:%d-%d:*", month, year), 10)
+	if scan.Err() != nil {
+		w.Write([]byte("Something went wrong while loading the leaderboard :cry: Please try again later!"))
+		return
+	}
+
+	scan_iterator := scan.Iterator()
+
+	type Entry struct {
+		Number int
+		User   string
+	}
+
+	entries := []Entry{}
+
+	for scan_iterator.Next() {
+		entry := redisClient.Get(scan_iterator.Val())
+		entry_int, err := entry.Int()
+		if err != nil {
+			return
+		}
+
+		if user, ok := parseLeaderboardEntry(scan_iterator.Val()); ok {
+			entries = append(entries, Entry{
+				Number: entry_int,
+				User:   user,
+			})
+		}
+	}
+
+	// Sort entries
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Number > entries[j].Number
+	})
+
+	blocks := []slack.Block{
+		slack.NewSectionBlock(
+			slack.NewTextBlockObject("mrkdwn", fmt.Sprintf(":chart_with_upwards_trend: Counting stats for *%s %d*:", month.String(), year), false, false),
+			nil,
+			nil,
+		),
+	}
+
+	for _, v := range entries {
+		blocks = append(blocks, slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", fmt.Sprintf("<@%s> has counted *%d* this month", v.User, v.Number), false, false), nil, nil))
+	}
+
+	resp, _ := json.Marshal(map[string]interface{}{
+		"blocks":       blocks,
+		"respose_type": "in_channel",
+	})
+
+	w.Header().Add("Content-Type", "application/json")
+	w.Write(resp)
+}
+
+func parseLeaderboardEntry(key string) (string, bool) {
+	re := regexp.MustCompile(`leaderboard:\d+-\d+:(\w+)`)
+
+	match := re.FindStringSubmatch(key)
+	if match == nil {
+		return "", false
+	}
+	return match[1], true
 }
