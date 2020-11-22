@@ -30,7 +30,7 @@ func onMessage(slackClient *slack.Client, event *slackevents.MessageEvent) {
 	}
 
 	// Ignore messages that aren't in the target channel, or are non-user messages.
-	if user == "USLACKBOT" || user == "" || event.Channel != jiaConfig.ChannelID {
+	if event.Channel != jiaConfig.ChannelID || user == "USLACKBOT" || user == "" {
 		return
 	}
 
