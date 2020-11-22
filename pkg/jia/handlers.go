@@ -22,11 +22,14 @@ func HandleInnerEvent(slackClient *slack.Client, innerEvent *slackevents.EventsA
 }
 
 func onMessage(slackClient *slack.Client, event *slackevents.MessageEvent) {
-	// Ignore messages that aren't in the target channel, or are non-user messages.
+	// Set the correct user for edited messages.
 	user := event.User
-	if event.IsEdited() {
+	edited := event.IsEdited()
+	if edited {
 		user = event.Message.User
 	}
+
+	// Ignore messages that aren't in the target channel, or are non-user messages.
 	if user == "USLACKBOT" || user == "" || event.Channel != jiaConfig.ChannelID {
 		return
 	}
@@ -37,7 +40,6 @@ func onMessage(slackClient *slack.Client, event *slackevents.MessageEvent) {
 	}
 
 	text := event.Text
-	edited := event.IsEdited()
 	// If the message was edited, use the new contents
 	if edited {
 		text = event.Message.Text
