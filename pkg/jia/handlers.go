@@ -23,7 +23,11 @@ func HandleInnerEvent(slackClient *slack.Client, innerEvent *slackevents.EventsA
 
 func onMessage(slackClient *slack.Client, event *slackevents.MessageEvent) {
 	// Ignore messages that aren't in the target channel, or are non-user messages.
-	if event.Channel != jiaConfig.ChannelID || event.User == "USLACKBOT" || event.User == "" {
+	user := event.User
+	if event.IsEdited() {
+		user = event.Message.User
+	}
+	if user == "USLACKBOT" || user == "" || event.Channel != jiaConfig.ChannelID {
 		return
 	}
 
@@ -32,9 +36,16 @@ func onMessage(slackClient *slack.Client, event *slackevents.MessageEvent) {
 		return
 	}
 
+	text := event.Text
+	edited := event.IsEdited()
+	// If the message was edited, use the new contents
+	if edited {
+		text = event.Message.Text
+	}
+
 	// Attempt to extract a positive number at the start of a string.
 	countPattern := regexp.MustCompile(`^\d+`)
-	matchedNumber, err := strconv.Atoi(countPattern.FindString(event.Text))
+	matchedNumber, err := strconv.Atoi(countPattern.FindString(text))
 
 	// Ignore messages that don't have numbers.
 	if err != nil {
@@ -47,7 +58,7 @@ func onMessage(slackClient *slack.Client, event *slackevents.MessageEvent) {
 		log.Println("Failed to retrieve the last sender")
 		return
 	}
-	if event.User == lastSenderID {
+	if user == lastSenderID {
 		slackClient.AddReaction("bangbang", slack.ItemRef{
 			Channel:   event.Channel,
 			Timestamp: event.TimeStamp,
@@ -78,6 +89,17 @@ func onMessage(slackClient *slack.Client, event *slackevents.MessageEvent) {
 		slackClient.PostEphemeral(event.Channel, event.User, slack.MsgOptionText(
 			fmt.Sprintf("You counted incorrectly! The next valid number is supposed to be *%d*.", lastValidNumber+1), false))
 		return
+	}
+
+	// Previously invalid message is now edited to be valid
+	if edited {
+		// Remove reaction if one was added
+		slackClient.RemoveReaction("bangbang", slack.ItemRef{
+			Channel:   event.Channel,
+			Timestamp: event.Message.TimeStamp,
+		})
+		slackClient.PostEphemeral(event.Channel, user, slack.MsgOptionText(
+			"Thanks for updating your count! Your number is now valid!! :tada:", false))
 	}
 
 	// Finally!
